@@ -33,7 +33,7 @@ def handler(event: dict, context) -> dict:
 
     ALLOWED_ENCODINGS = {
         'LATIN1', 'UTF8', 'SQL_ASCII', 'WIN1251', 'WIN866',
-        'KOI8R', 'KOI8U', 'ISO_8859_5', 'WIN1252',
+        'KOI8R', 'KOI8U', 'ISO_8859_5', 'WIN1252', 'GB18030',
     }
 
     params = event.get('queryStringParameters') or {}
@@ -92,12 +92,16 @@ def handler(event: dict, context) -> dict:
             'env_check': env_check,
         }
     else:
+        t = f"convert_from(decode(%s, 'hex'), '{encoding}')"
         sql = (
-            f"SELECT length(convert_from(decode(%s, 'hex'), '{encoding}')),"
-            f"       octet_length(convert_from(decode(%s, 'hex'), '{encoding}')),"
-            f"       substring(convert_from(decode(%s, 'hex'), '{encoding}') from 1 for 5)"
+            f"SELECT length({t}),"
+            f"       octet_length({t}),"
+            f"       substring({t} from 1 for 5),"
+            f"       overlay({t} placing 'X' from 2 for 1),"
+            f"       replace({t}, substring({t} from 1 for 1), 'Y'),"
+            f"       translate({t}, substring({t} from 1 for 1), 'Z')"
         )
-        cur.execute(sql, (hex_param, hex_param, hex_param))
+        cur.execute(sql, (hex_param,) * 9)
         row = cur.fetchone()
         result = {
             'mode': 'hex',
@@ -106,6 +110,9 @@ def handler(event: dict, context) -> dict:
             'length': row[0],
             'octet_length': row[1],
             'substring_1_5': row[2],
+            'overlay_test': row[3],
+            'replace_test': row[4],
+            'translate_test': row[5],
             'connection_info': connection_info,
             'env_check': env_check,
         }
