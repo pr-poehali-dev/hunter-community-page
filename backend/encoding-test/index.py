@@ -65,10 +65,8 @@ def handler(event: dict, context) -> dict:
         'dsn_parameters': dsn_params,
     }
     cur = conn.cursor()
-    cur.execute("SELECT version(), current_setting('server_version_num')")
-    pg_row = cur.fetchone()
-    connection_info['pg_version'] = pg_row[0]
-    connection_info['pg_version_num'] = pg_row[1]
+    cur.execute("SELECT version()")
+    connection_info['pg_version'] = cur.fetchone()[0]
 
     if text_param:
         cur.execute(
