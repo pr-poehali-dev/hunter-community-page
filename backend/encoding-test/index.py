@@ -11,10 +11,12 @@ CORS_HEADERS = {
 
 def handler(event: dict, context) -> dict:
     """
-    Тестирование совместимости кодировок при импорте данных из легаси систем (CP1251/LATIN1).
+    Тестирование совместимости кодировок при импорте данных из легаси систем.
     Режимы:
       - text=<строка> — анализирует текст через length() и octet_length()
-      - hex=<hex-строка> — декодирует hex в bytea, конвертирует из LATIN1 и применяет length(), octet_length(), substring(... from 1 for 5)
+      - hex=<hex-строка> — декодирует hex в bytea, конвертирует из указанной кодировки (encoding=, по умолчанию LATIN1)
+        и применяет length(), octet_length(), substring(... from 1 for 5)
+    Параметр encoding: LATIN1 | UTF8 | SQL_ASCII | WIN1251 и др. (любая кодировка PostgreSQL)
     Требует заголовок X-Admin-Token.
     """
     if event.get('httpMethod') == 'OPTIONS':
@@ -28,9 +30,22 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'Forbidden'}),
         }
 
+    ALLOWED_ENCODINGS = {
+        'LATIN1', 'UTF8', 'SQL_ASCII', 'WIN1251', 'WIN866',
+        'KOI8R', 'KOI8U', 'ISO_8859_5', 'WIN1252',
+    }
+
     params = event.get('queryStringParameters') or {}
     text_param = params.get('text')
     hex_param = params.get('hex')
+    encoding = params.get('encoding', 'LATIN1').upper()
+
+    if encoding not in ALLOWED_ENCODINGS:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Недопустимая кодировка: {encoding}. Допустимые: {sorted(ALLOWED_ENCODINGS)}'}),
+        }
 
     if not text_param and not hex_param:
         return {
@@ -55,15 +70,16 @@ def handler(event: dict, context) -> dict:
             'octet_length': row[1],
         }
     else:
-        cur.execute(
-            "SELECT length(convert_from(decode(%s, 'hex'), 'LATIN1')),"
-            "       octet_length(convert_from(decode(%s, 'hex'), 'LATIN1')),"
-            "       substring(convert_from(decode(%s, 'hex'), 'LATIN1') from 1 for 5)",
-            (hex_param, hex_param, hex_param),
+        sql = (
+            f"SELECT length(convert_from(decode(%s, 'hex'), '{encoding}')),"
+            f"       octet_length(convert_from(decode(%s, 'hex'), '{encoding}')),"
+            f"       substring(convert_from(decode(%s, 'hex'), '{encoding}') from 1 for 5)"
         )
+        cur.execute(sql, (hex_param, hex_param, hex_param))
         row = cur.fetchone()
         result = {
             'mode': 'hex',
+            'encoding': encoding,
             'input': hex_param,
             'length': row[0],
             'octet_length': row[1],
