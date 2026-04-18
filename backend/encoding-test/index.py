@@ -55,6 +55,14 @@ def handler(event: dict, context) -> dict:
         }
 
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    connection_info = {
+        'host': conn.info.host,
+        'port': conn.info.port,
+        'dbname': conn.info.dbname,
+        'user': conn.info.user,
+        'dsn': conn.dsn,
+        'server_version': conn.info.server_version,
+    }
     cur = conn.cursor()
 
     if text_param:
@@ -68,6 +76,7 @@ def handler(event: dict, context) -> dict:
             'input': text_param,
             'length': row[0],
             'octet_length': row[1],
+            'connection_info': connection_info,
         }
     else:
         sql = (
@@ -84,6 +93,7 @@ def handler(event: dict, context) -> dict:
             'length': row[0],
             'octet_length': row[1],
             'substring_1_5': row[2],
+            'connection_info': connection_info,
         }
 
     cur.close()
