@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import psycopg2
 
 CORS_HEADERS = {
@@ -54,7 +55,15 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'Укажите параметр text= или hex='}),
         }
 
-    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    db_url = os.environ.get('DATABASE_URL', '')
+    db_url_safe = re.sub(r'://[^@]+@', '://<credentials>@', db_url)
+    env_check = {
+        'DATABASE_URL': bool(db_url),
+        'ADMIN_TOKEN': bool(os.environ.get('ADMIN_TOKEN')),
+        'db_url_preview': db_url_safe[:80] + ('...' if len(db_url_safe) > 80 else ''),
+    }
+
+    conn = psycopg2.connect(db_url)
     dsn_params = conn.get_dsn_parameters()
     connection_info = {
         'host': conn.info.host,
@@ -80,6 +89,7 @@ def handler(event: dict, context) -> dict:
             'length': row[0],
             'octet_length': row[1],
             'connection_info': connection_info,
+            'env_check': env_check,
         }
     else:
         sql = (
@@ -97,6 +107,7 @@ def handler(event: dict, context) -> dict:
             'octet_length': row[1],
             'substring_1_5': row[2],
             'connection_info': connection_info,
+            'env_check': env_check,
         }
 
     cur.close()
