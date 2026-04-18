@@ -55,13 +55,14 @@ def handler(event: dict, context) -> dict:
         }
 
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    dsn_params = conn.get_dsn_parameters()
     connection_info = {
         'host': conn.info.host,
         'port': conn.info.port,
         'dbname': conn.info.dbname,
         'user': conn.info.user,
-        'dsn': conn.dsn,
         'server_version': conn.info.server_version,
+        'dsn_parameters': dsn_params,
     }
     cur = conn.cursor()
 
