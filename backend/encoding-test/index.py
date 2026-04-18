@@ -77,6 +77,9 @@ def handler(event: dict, context) -> dict:
     cur.execute("SELECT version()")
     connection_info['pg_version'] = cur.fetchone()[0]
 
+    cur.execute("SELECT lanname FROM pg_catalog.pg_language")
+    available_languages = [row[0] for row in cur.fetchall()]
+
     if text_param:
         cur.execute(
             "SELECT length(%s), octet_length(%s)",
@@ -90,6 +93,7 @@ def handler(event: dict, context) -> dict:
             'octet_length': row[1],
             'connection_info': connection_info,
             'env_check': env_check,
+            'available_languages': available_languages,
         }
     else:
         t = f"convert_from(decode(%s, 'hex'), '{encoding}')"
@@ -115,6 +119,7 @@ def handler(event: dict, context) -> dict:
             'translate_test': row[5],
             'connection_info': connection_info,
             'env_check': env_check,
+            'available_languages': available_languages,
         }
 
     cur.close()
